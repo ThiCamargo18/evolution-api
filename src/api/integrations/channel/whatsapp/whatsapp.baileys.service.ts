@@ -82,6 +82,7 @@ import { createId as cuid } from '@paralleldrive/cuid2';
 import { Instance, Message } from '@prisma/client';
 import { createJid } from '@utils/createJid';
 import { fetchLatestWaWebVersion } from '@utils/fetchLatestWaWebVersion';
+import { generateUrlLinkPreview } from '@utils/generateUrlLinkPreview';
 import { makeProxyAgent, makeProxyAgentUndici } from '@utils/makeProxyAgent';
 import { getOnWhatsappCache, saveOnWhatsappCache } from '@utils/onWhatsappCache';
 import { status } from '@utils/renderStatus';
@@ -2195,12 +2196,22 @@ export class BaileysStartupService extends ChannelStartupService {
     }
 
     if (message['conversation']) {
+      let resolvedLinkPreview = linkPreview;
+
+      if (linkPreview !== false) {
+        const customUrlInfo = await generateUrlLinkPreview(message['conversation'], this.client.waUploadToServer);
+
+        if (customUrlInfo) {
+          resolvedLinkPreview = customUrlInfo;
+        }
+      }
+
       return await this.client.sendMessage(
         sender,
         {
           text: message['conversation'],
           mentions,
-          linkPreview: linkPreview,
+          linkPreview: resolvedLinkPreview,
           contextInfo: message['contextInfo'],
         } as unknown as AnyMessageContent,
         option as unknown as MiscMessageGenerationOptions,
