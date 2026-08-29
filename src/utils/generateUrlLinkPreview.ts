@@ -39,6 +39,18 @@ function extractMetaContent(html: string, properties: string[]): string | undefi
   return undefined;
 }
 
+// WhatsApp only renders the big image card when the title is non-empty, so
+// this stands in for a real title: it keeps the card to just the image and
+// the shared link's own domain (e.g. "mercadolivre.com"), no page title/
+// description text.
+function linkPreviewDomain(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).host.replace(/^www\./, '');
+  } catch {
+    return rawUrl;
+  }
+}
+
 /**
  * Fetches Open Graph data for the first URL found in `text` using a
  * WhatsApp-spoofed User-Agent and normal (cross-domain) redirect following.
@@ -68,15 +80,14 @@ export const generateUrlLinkPreview = async (
     const html = pageResponse.data;
     const finalUrl = pageResponse.request?.res?.responseUrl || matchedText;
 
-    const title = extractMetaContent(html, ['og:title']) || html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim();
     let imageUrl = extractMetaContent(html, ['og:image', 'twitter:image']);
 
-    if (!title && !imageUrl) return undefined;
+    if (!imageUrl) return undefined;
 
     const urlInfo: WAUrlInfo = {
       'canonical-url': finalUrl,
       'matched-text': matchedText,
-      title: title || '',
+      title: linkPreviewDomain(matchedText),
       description: '',
     };
 
