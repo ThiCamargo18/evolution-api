@@ -69,7 +69,6 @@ export const generateUrlLinkPreview = async (
     const finalUrl = pageResponse.request?.res?.responseUrl || matchedText;
 
     const title = extractMetaContent(html, ['og:title']) || html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim();
-    const description = extractMetaContent(html, ['og:description', 'description']);
     let imageUrl = extractMetaContent(html, ['og:image', 'twitter:image']);
 
     if (!title && !imageUrl) return undefined;
@@ -78,7 +77,7 @@ export const generateUrlLinkPreview = async (
       'canonical-url': finalUrl,
       'matched-text': matchedText,
       title: title || '',
-      description: description || '',
+      description: '',
     };
 
     if (imageUrl && uploadImage) {
