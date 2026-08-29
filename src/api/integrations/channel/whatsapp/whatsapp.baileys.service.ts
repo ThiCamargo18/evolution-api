@@ -944,10 +944,6 @@ export class BaileysStartupService extends ChannelStartupService {
         if (syncType === proto.HistorySync.HistorySyncType.ON_DEMAND) {
           console.log('received on-demand history sync, messages=', messages);
         }
-        console.log(
-          `recv ${chats.length} chats, ${contacts.length} contacts, ${messages.length} msgs (is latest: ${isLatest}, progress: ${progress}%), type: ${syncType}`,
-        );
-
         const instance: InstanceDto = { instanceName: this.instance.name };
 
         let timestampLimitToImport = null;
@@ -1571,7 +1567,6 @@ export class BaileysStartupService extends ChannelStartupService {
         const cached = await this.baileysCache.get(updateKey);
 
         const secondsSinceEpoch = Math.floor(Date.now() / 1000);
-        console.log('CACHE:', { cached, updateKey, messageTimestamp: update.messageTimestamp, secondsSinceEpoch });
 
         if (
           (update.messageTimestamp && update.messageTimestamp === cached) ||
