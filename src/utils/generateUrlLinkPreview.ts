@@ -74,6 +74,15 @@ async function loadImageBuffer(source: string): Promise<Buffer> {
   return Buffer.from(source, 'base64');
 }
 
+// WhatsApp's media pipeline expects JPEG for image/thumbnail-link media —
+// WEBP/PNG/AVIF sources (common on e-commerce CDNs) get silently dropped by
+// the client, which then falls back to the small embedded jpegThumbnail
+// only, looking blurry. Re-encoding here guarantees the HD upload always
+// decodes.
+async function toJpegBuffer(imageBuffer: Buffer): Promise<Buffer> {
+  return sharp(imageBuffer).flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
+}
+
 /**
  * Builds a WAUrlInfo using a caller-supplied image instead of scraping the
  * page. The real URL from `text` is kept as matched-text/canonical-url so it
@@ -95,7 +104,7 @@ async function generateCustomLinkPreview(
       description: '',
     };
 
-    const imageBuffer = await loadImageBuffer(customPreview.thumbnailUrl);
+    const imageBuffer = await toJpegBuffer(await loadImageBuffer(customPreview.thumbnailUrl));
 
     urlInfo.jpegThumbnail = await sharp(imageBuffer).resize({ width: THUMBNAIL_WIDTH_PX }).jpeg().toBuffer();
 
@@ -177,7 +186,7 @@ export const generateUrlLinkPreview = async (
           responseType: 'arraybuffer',
         });
 
-        const imageBuffer = Buffer.from(imageResponse.data);
+        const imageBuffer = await toJpegBuffer(Buffer.from(imageResponse.data));
 
         urlInfo.jpegThumbnail = await sharp(imageBuffer).resize({ width: THUMBNAIL_WIDTH_PX }).jpeg().toBuffer();
 
