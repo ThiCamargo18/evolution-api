@@ -2191,10 +2191,15 @@ export class BaileysStartupService extends ChannelStartupService {
     }
 
     if (message['conversation']) {
-      let resolvedLinkPreview = linkPreview;
+      const customPreview = linkPreview && typeof linkPreview === 'object' ? linkPreview : undefined;
+      let resolvedLinkPreview: any = linkPreview === false ? false : undefined;
 
       if (linkPreview !== false) {
-        const customUrlInfo = await generateUrlLinkPreview(message['conversation'], this.client.waUploadToServer);
+        const customUrlInfo = await generateUrlLinkPreview(
+          message['conversation'],
+          this.client.waUploadToServer,
+          customPreview,
+        );
 
         if (customUrlInfo) {
           resolvedLinkPreview = customUrlInfo;
@@ -2344,7 +2349,7 @@ export class BaileysStartupService extends ChannelStartupService {
         }
       }
 
-      const linkPreview = options?.linkPreview != false ? undefined : false;
+      const linkPreview = options?.linkPreview === false ? false : options?.linkPreview;
 
       let quoted: WAMessage;
 

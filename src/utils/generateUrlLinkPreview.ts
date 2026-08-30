@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { prepareWAMessageMedia, WAMediaUploadFunction, WAUrlInfo } from 'baileys';
+import { isURL } from 'class-validator';
 import sharp from 'sharp';
 
 // Marketplaces like Mercado Livre and Shopee return 403 to a generic
@@ -51,6 +52,70 @@ function linkPreviewDomain(rawUrl: string): string {
   }
 }
 
+export interface CustomLinkPreview {
+  title?: string;
+  // Image URL or base64 to use as the preview thumbnail instead of scraping the page.
+  thumbnailUrl?: string;
+}
+
+async function loadImageBuffer(source: string): Promise<Buffer> {
+  if (isURL(source)) {
+    const response = await axios.get<ArrayBuffer>(source, {
+      headers: REQUEST_HEADERS,
+      timeout: REQUEST_TIMEOUT_MS,
+      maxRedirects: 10,
+      maxContentLength: MAX_IMAGE_BYTES,
+      responseType: 'arraybuffer',
+    });
+
+    return Buffer.from(response.data);
+  }
+
+  return Buffer.from(source, 'base64');
+}
+
+/**
+ * Builds a WAUrlInfo using a caller-supplied image instead of scraping the
+ * page. The real URL from `text` is kept as matched-text/canonical-url so it
+ * stays clickable and unchanged; only the card's image/title/description are
+ * overridden. Lets affiliate links (Mercado Livre, Shopee, etc.) use a
+ * controlled, always-crisp image instead of whatever og:image the store
+ * happens to serve.
+ */
+async function generateCustomLinkPreview(
+  matchedText: string,
+  customPreview: CustomLinkPreview,
+  uploadImage?: WAMediaUploadFunction,
+): Promise<WAUrlInfo | undefined> {
+  try {
+    const urlInfo: WAUrlInfo = {
+      'canonical-url': matchedText,
+      'matched-text': matchedText,
+      title: customPreview.title || linkPreviewDomain(matchedText),
+      description: '',
+    };
+
+    const imageBuffer = await loadImageBuffer(customPreview.thumbnailUrl);
+
+    urlInfo.jpegThumbnail = await sharp(imageBuffer).resize({ width: THUMBNAIL_WIDTH_PX }).jpeg().toBuffer();
+
+    if (uploadImage) {
+      const { imageMessage } = await prepareWAMessageMedia(
+        { image: imageBuffer },
+        { upload: uploadImage, mediaTypeOverride: 'thumbnail-link' },
+      );
+
+      if (imageMessage) {
+        urlInfo.highQualityThumbnail = imageMessage as WAUrlInfo['highQualityThumbnail'];
+      }
+    }
+
+    return urlInfo;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Fetches Open Graph data for the first URL found in `text` using a
  * WhatsApp-spoofed User-Agent and normal (cross-domain) redirect following.
@@ -59,13 +124,22 @@ function linkPreviewDomain(rawUrl: string): string {
  * refuses to follow redirects across hostnames, which is exactly the shape
  * of affiliate short links (e.g. Mercado Livre/Shopee) and why those never
  * get an image. This bypasses both limitations.
+ *
+ * When `customPreview.thumbnailUrl` is provided, the page is never scraped —
+ * the supplied image/title/description are used directly.
  */
 export const generateUrlLinkPreview = async (
   text: string,
   uploadImage?: WAMediaUploadFunction,
+  customPreview?: CustomLinkPreview,
 ): Promise<WAUrlInfo | undefined> => {
   const matchedText = text?.match(URL_REGEX)?.[0];
   if (!matchedText) return undefined;
+
+  if (customPreview?.thumbnailUrl) {
+    const customUrlInfo = await generateCustomLinkPreview(matchedText, customPreview, uploadImage);
+    if (customUrlInfo) return customUrlInfo;
+  }
 
   try {
     const pageResponse = await axios.get<string>(matchedText, {
