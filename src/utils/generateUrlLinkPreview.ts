@@ -20,14 +20,6 @@ const MAX_PAGE_BYTES = 3 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const THUMBNAIL_WIDTH_PX = 192;
 
-// WhatsApp's "big image" link preview card renders the thumbnail inside a
-// box close to the Open Graph reference ratio (1200x630 = 1.91:1) using a
-// centered crop. Very wide/tall source images (banners, panoramas) get most
-// of their content cut off by that crop. Padding them into this range before
-// upload moves the crop onto the added white bars instead of real content.
-const MAX_ASPECT_RATIO = 1.91;
-const MIN_ASPECT_RATIO = 1 / MAX_ASPECT_RATIO;
-
 const URL_REGEX = /https?:\/\/[^\s]+/i;
 
 function extractMetaContent(html: string, properties: string[]): string | undefined {
@@ -88,20 +80,7 @@ async function loadImageBuffer(source: string): Promise<Buffer> {
 // only, looking blurry. Re-encoding here guarantees the HD upload always
 // decodes.
 async function toJpegBuffer(imageBuffer: Buffer): Promise<Buffer> {
-  const image = sharp(imageBuffer).flatten({ background: '#ffffff' });
-  const { width, height } = await image.metadata();
-
-  if (width && height) {
-    const ratio = width / height;
-
-    if (ratio > MAX_ASPECT_RATIO) {
-      image.resize({ width, height: Math.round(width / MAX_ASPECT_RATIO), fit: 'contain', background: '#ffffff' });
-    } else if (ratio < MIN_ASPECT_RATIO) {
-      image.resize({ width: Math.round(height * MIN_ASPECT_RATIO), height, fit: 'contain', background: '#ffffff' });
-    }
-  }
-
-  return image.jpeg({ quality: 90 }).toBuffer();
+  return sharp(imageBuffer).flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
 }
 
 /**
