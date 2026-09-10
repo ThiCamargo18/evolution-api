@@ -56,6 +56,10 @@ export interface CustomLinkPreview {
   title?: string;
   // Image URL or base64 to use as the preview thumbnail instead of scraping the page.
   thumbnailUrl?: string;
+  // When the message text contains multiple links, pins which one becomes the
+  // preview card instead of defaulting to the first URL found in the text.
+  // Must appear verbatim in the message text or it's ignored.
+  url?: string;
 }
 
 async function loadImageBuffer(source: string): Promise<Buffer> {
@@ -136,13 +140,19 @@ async function generateCustomLinkPreview(
  *
  * When `customPreview.thumbnailUrl` is provided, the page is never scraped —
  * the supplied image/title/description are used directly.
+ *
+ * By default the previewed link is the first URL found in `text`. When the
+ * text has more than one link (e.g. a coupon link followed by the actual
+ * product link), pass `customPreview.url` set to the exact substring that
+ * should be previewed instead.
  */
 export const generateUrlLinkPreview = async (
   text: string,
   uploadImage?: WAMediaUploadFunction,
   customPreview?: CustomLinkPreview,
 ): Promise<WAUrlInfo | undefined> => {
-  const matchedText = text?.match(URL_REGEX)?.[0];
+  const pinnedUrl = customPreview?.url && text?.includes(customPreview.url) ? customPreview.url : undefined;
+  const matchedText = pinnedUrl || text?.match(URL_REGEX)?.[0];
   if (!matchedText) return undefined;
 
   if (customPreview?.thumbnailUrl) {

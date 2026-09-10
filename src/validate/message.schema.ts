@@ -79,6 +79,11 @@ export const textMessageSchema: JSONSchema7 = {
           properties: {
             title: { type: 'string' },
             thumbnailUrl: { type: 'string', description: 'Image URL or base64 to use as the preview thumbnail' },
+            url: {
+              type: 'string',
+              description:
+                'Exact URL (as it appears in the message text) to use for the preview, when the text contains multiple links',
+            },
           },
         },
       ],

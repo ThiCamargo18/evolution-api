@@ -9,6 +9,9 @@ export class LinkPreviewOptions {
   title?: string;
   // url or base64
   thumbnailUrl?: string;
+  // Exact URL (as it appears in the message text) to use for the preview,
+  // when the text contains multiple links
+  url?: string;
 }
 
 export class Options {
